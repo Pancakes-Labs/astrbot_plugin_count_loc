@@ -90,7 +90,7 @@ class RepoClient:
         cache_key = (
             platform.lower(),
             repo_path.lower(),
-            (branch or "").lower(),
+            branch or "",
             norm_ignored,
         )
 

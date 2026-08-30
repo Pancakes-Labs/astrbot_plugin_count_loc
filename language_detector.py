@@ -121,11 +121,11 @@ class LanguageDetector:
         "license.md": "License",
         "license.mit": "License",
         "readme": "Markdown",
-        "dockerignore": "Docker ignore",
-        "editorconfig": "INI",
-        "gitignore": "Plain Text",
-        "gitattributes": "Plain Text",
-        "gitmodules": "Plain Text",
+        ".dockerignore": "Docker ignore",
+        ".editorconfig": "INI",
+        ".gitignore": "Plain Text",
+        ".gitattributes": "Plain Text",
+        ".gitmodules": "Plain Text",
         "procfile": "Plain Text",
         "pipfile": "TOML",
         "poetry.lock": "TOML",
@@ -135,12 +135,12 @@ class LanguageDetector:
     def detect(cls, rel_path: str) -> str:
         """根据仓库内相对路径判定语言名称喵。
 
-        判定优先级：特殊文件名 -> 复合扩展名(.d.ts) -> 常规扩展名 -> 无扩展名按文件名。
+        判定优先级：特殊文件名 -> 复合扩展名(.d.ts) -> 常规扩展名 -> 未知无扩展名回退为 Plain Text。
         """
         base = rel_path.rsplit("/", 1)[-1]
         low = base.lower()
 
-        # 1. 特殊文件名优先（如 Dockerfile / Makefile / LICENSE）
+        # 1. 特殊文件名优先
         if low in cls.FILENAME_TO_LANGUAGE:
             return cls.FILENAME_TO_LANGUAGE[low]
 
@@ -149,12 +149,12 @@ class LanguageDetector:
             return "TypeScript Typings"
 
         # 3. 常规扩展名
-        if "." in base:
+        if "." in base and not base.startswith("."):
             ext = base.rsplit(".", 1)[-1].lower()
             lang = cls.EXTENSION_TO_LANGUAGE.get("." + ext)
             if lang:
                 return lang
             return "Plain Text"
 
-        # 4. 无扩展名：以文件名作为语言展示名（兼容 LICENSE 等）
-        return base
+        # 4. 无扩展名或隐藏文件未命中特殊表：统一回退为 Plain Text 喵
+        return "Plain Text"

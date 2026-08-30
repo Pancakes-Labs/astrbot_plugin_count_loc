@@ -180,16 +180,17 @@ def count_lines(content: str, language: str) -> tuple[int, int, int, int]:
                 comments += 1
             continue
 
-        # 1. 纯单行注释判断
-        if _is_line_comment(line, line_markers):
-            comments += 1
-            continue
-
-        # 2. 块注释起始扫描（支持行内多次嵌套或行首/行中块注释）
+        # 1. 块注释起始扫描（优先于单行注释，防止 Lua 等被单行注释误拦截）
         if block_pairs:
             start_idx, end_idx, start, end = _find_block_start(line, block_pairs)
             if start_idx is not None:
-                has_code = start_idx > 0  # 块注释前存在代码字符
+                # 检查块注释前是否已经有单行注释（例如 // /* ... */）
+                prefix = line[:start_idx].strip()
+                if prefix and _is_line_comment(prefix, line_markers):
+                    comments += 1
+                    continue
+
+                has_code = start_idx > 0  # 块注释前存在有效代码字符
                 curr_line = line
                 curr_start_idx = start_idx
                 curr_end_idx = end_idx
@@ -230,6 +231,11 @@ def count_lines(content: str, language: str) -> tuple[int, int, int, int]:
                 else:
                     comments += 1
                 continue
+
+        # 2. 纯单行注释判断
+        if _is_line_comment(line, line_markers):
+            comments += 1
+            continue
 
         # 3. 纯代码行
         code += 1

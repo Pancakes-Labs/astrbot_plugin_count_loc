@@ -128,7 +128,6 @@ class CountLocPlugin(Star):
         if now - last_time < self._cooldown_seconds:
             yield event.plain_result("⏳ 操作太频繁了喵，请稍等片刻再试哦！")
             return
-        self._user_cooldown[sender_id] = now
 
         message_str = event.message_str.strip()
 
@@ -136,9 +135,12 @@ class CountLocPlugin(Star):
         repo_path, options, error_msg = self.command_parser.parse_args(message_str)
 
         if error_msg:
-            # 如果有解析错误（例如用户直接打了 "/代码统计"），回复帮助提示
+            # 如果有解析错误（例如用户直接打了 "/代码统计"），回复帮助提示，不消耗冷却时间
             yield event.plain_result(error_msg)
             return
+
+        # 只有在指令成功解析后才记录冷却时间喵
+        self._user_cooldown[sender_id] = now
 
         # 2. 友好地提示用户正在查询中
         platform_name = "GitLab" if options.get("platform") == "gitlab" else "GitHub"

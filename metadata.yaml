@@ -3,7 +3,7 @@ display_name: 代码统计 (CountLOC) # 用于展示的名字，可以是方便�
 desc: 一个可以分析 GitHub/GitLab 公开仓库代码行数、文件数和注释行数的 AstrBot 插件喵。支持多分支选择、自定义忽略项过滤和 LLM 函数工具调用喵！ # 插件简短描述
 version: v2.0.0 # 插件版本号。格式：v1.1.1 或者 v1.1
 author: DBJD-CR & Gemini # 作者
-repo: https://github.com/DBJD-CR/astrbot_plugin_count_loc # 插件的仓库地址
+repo: https://github.com/Pancakes-Labs/astrbot_plugin_count_loc # 插件的仓库地址
 astrbot_version: ">=4.11.2" # 插件适配的 AstrBot 版本范围
 support_platforms: # 请替换为你的插件实际支持的平台
   - aiocqhttp

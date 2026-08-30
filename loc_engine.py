@@ -80,12 +80,14 @@ class LocEngine:
             else os.environ.get("GITLAB_TOKEN", "").strip()
         )
         self.max_archive_mb = max_archive_mb
+        self.max_content_mb = max_content_mb
         self.max_archive_bytes = max_archive_mb * 1024 * 1024
         self.max_content_bytes = max_content_mb * 1024 * 1024
         self.max_files = max_files
         self.timeout = timeout
-        # 归档下载缓存与默认分支缓存 (TTL 10分钟)
+        # 归档下载缓存与默认分支缓存 (TTL 10分钟，归档缓存最多保留 2 个条目防内存占用)
         self._cache_ttl = 600
+        self._max_archive_cache_entries = 2
         self._branch_cache: dict[str, tuple[float, str]] = {}
         self._archive_cache: dict[str, tuple[float, bytes]] = {}
         # 惰性初始化 AsyncClient，绑定调用时的 event loop 喵
@@ -148,9 +150,15 @@ class LocEngine:
     # ------------------------------------------------------------------
     # 默认分支解析
     # ------------------------------------------------------------------
-    async def _resolve_default_branch_github(self, owner: str, repo: str) -> str:
-        """通过 GitHub API 查询仓库默认分支喵。"""
-        cache_key = f"github:{owner}/{repo}".lower()
+    async def _fetch_default_branch(
+        self,
+        cache_key: str,
+        api_url: str,
+        headers: dict[str, str],
+        platform_name: str,
+        is_private_fn,
+    ) -> str:
+        """通用的默认分支解析抽象方法，集成缓存、鉴权、错误处理与私有仓库拦截喵。"""
         now = time.time()
         if cache_key in self._branch_cache:
             ts, cached_branch = self._branch_cache[cache_key]
@@ -158,75 +166,57 @@ class LocEngine:
                 return cached_branch
 
         client = self._get_client()
-        url = self.GITHUB_API.format(owner=owner, repo=repo)
-        logger.info(f"[代码统计] 正在查询 GitHub 默认分支: {url}")
+        logger.info(f"[代码统计] 正在查询 {platform_name} 默认分支: {api_url}")
         try:
-            response = await client.get(url, headers=self._github_headers())
+            response = await client.get(api_url, headers=headers)
         except httpx.RequestError as e:
             raise LocError(
-                f"网络连接异常，无法访问 GitHub API 喵。错误详情: {str(e)}"
+                f"网络连接异常，无法访问 {platform_name} API 喵。错误详情: {str(e)}"
             ) from e
 
         if response.status_code == 404:
-            raise LocError(
-                "未找到该仓库，请检查用户名、仓库名是否正确，且仓库必须是公开的喵！"
-            )
+            raise LocError("未找到该仓库，请检查路径是否正确，且仓库必须是公开的喵！")
         if response.status_code == 403:
-            hint = (
-                "，或在插件配置中填写 GitHub Token 以提升配额！"
-                if not self.github_token
-                else ""
-            )
-            raise LocError(f"GitHub API 访问频率受限{hint}喵。可稍后再试。")
+            hint = "，或在插件配置中填写 Token 以提升配额！" if not headers else ""
+            raise LocError(f"{platform_name} API 访问频率受限{hint}喵。可稍后再试。")
         response.raise_for_status()
 
         try:
             data = response.json()
         except ValueError as e:
-            raise LocError("GitHub API 响应解析失败，请稍后再试喵！") from e
+            raise LocError(f"{platform_name} API 响应解析失败，请稍后再试喵！") from e
+
+        if is_private_fn(data):
+            raise LocError("本插件仅支持统计公开 (Public) 仓库喵！")
 
         branch = data.get("default_branch")
         if not branch:
-            raise LocError("无法从 GitHub API 获取仓库的默认分支喵。")
+            raise LocError(f"无法从 {platform_name} API 获取仓库的默认分支喵。")
         self._branch_cache[cache_key] = (now, branch)
         return branch
+
+    async def _resolve_default_branch_github(self, owner: str, repo: str) -> str:
+        """通过 GitHub API 查询仓库默认分支喵。"""
+        return await self._fetch_default_branch(
+            cache_key=f"github:{owner}/{repo}".lower(),
+            api_url=self.GITHUB_API.format(owner=owner, repo=repo),
+            headers=self._github_headers(),
+            platform_name="GitHub",
+            is_private_fn=lambda data: data.get("private") is True,
+        )
 
     async def _resolve_default_branch_gitlab(self, full_path: str) -> str:
         """通过 GitLab API 查询仓库默认分支喵。"""
-        cache_key = f"gitlab:{full_path}".lower()
-        now = time.time()
-        if cache_key in self._branch_cache:
-            ts, cached_branch = self._branch_cache[cache_key]
-            if now - ts <= self._cache_ttl:
-                return cached_branch
-
-        client = self._get_client()
         encoded = quote(full_path, safe="")
-        url = self.GITLAB_API.format(encoded_path=encoded)
-        logger.info(f"[代码统计] 正在查询 GitLab 默认分支: {url}")
-        try:
-            response = await client.get(url, headers=self._gitlab_headers())
-        except httpx.RequestError as e:
-            raise LocError(
-                f"网络连接异常，无法访问 GitLab API 喵。错误详情: {str(e)}"
-            ) from e
-
-        if response.status_code == 404:
-            raise LocError(
-                "未找到该仓库，请检查用户名/组/仓库名是否正确，且仓库必须是公开的喵！"
-            )
-        response.raise_for_status()
-
-        try:
-            data = response.json()
-        except ValueError as e:
-            raise LocError("GitLab API 响应解析失败，请稍后再试喵！") from e
-
-        branch = data.get("default_branch")
-        if not branch:
-            raise LocError("无法从 GitLab API 获取仓库的默认分支喵。")
-        self._branch_cache[cache_key] = (now, branch)
-        return branch
+        return await self._fetch_default_branch(
+            cache_key=f"gitlab:{full_path}".lower(),
+            api_url=self.GITLAB_API.format(encoded_path=encoded),
+            headers=self._gitlab_headers(),
+            platform_name="GitLab",
+            is_private_fn=lambda data: bool(
+                data.get("visibility") and data.get("visibility") != "public"
+            ),
+        )
 
     # ------------------------------------------------------------------
     # 归档下载与解压
@@ -236,6 +226,15 @@ class LocEngine:
     ) -> bytes:
         """流式下载仓库归档压缩包字节流，支持归档内存缓存与实时体积熔断喵。"""
         now = time.time()
+        # 清理过期缓存
+        expired_keys = [
+            k
+            for k, (ts, _) in self._archive_cache.items()
+            if now - ts > self._cache_ttl
+        ]
+        for k in expired_keys:
+            self._archive_cache.pop(k, None)
+
         if url in self._archive_cache:
             ts, cached_bytes = self._archive_cache[url]
             if now - ts <= self._cache_ttl:
@@ -280,6 +279,12 @@ class LocEngine:
 
         size_mb = len(content) / (1024 * 1024)
         logger.info(f"[代码统计] 归档下载完成，共 {size_mb:.2f} MB，开始解压统计喵。")
+        # 控制归档缓存最大条目数
+        if len(self._archive_cache) >= self._max_archive_cache_entries:
+            oldest_key = min(
+                self._archive_cache.keys(), key=lambda k: self._archive_cache[k][0]
+            )
+            self._archive_cache.pop(oldest_key, None)
         self._archive_cache[url] = (now, content)
         return content
 
@@ -305,80 +310,86 @@ class LocEngine:
         parts = path.split("/", 1)
         return parts[1] if len(parts) > 1 else ""
 
-    def _process_zip(self, data: bytes, ignored: list[str]) -> dict[str, dict]:
-        """解压并统计 zip 归档（GitHub codeload）喵。"""
-        totals: dict[str, dict] = {}
-        processed_files = 0
+    def _is_effective_member(self, rel_path: str, ignored: list[str]) -> bool:
+        """过滤有效统计成员（排除空路径、系统隐藏垃圾与用户忽略项）喵。"""
+        if not rel_path:
+            return False
+        if rel_path.startswith("__MACOSX/") or rel_path.endswith(".DS_Store"):
+            return False
+        if self._should_ignore(rel_path, ignored):
+            return False
+        return True
+
+    def _iter_zip_members(self, data: bytes):
+        """流式迭代 zip 归档中的有效文件成员喵。"""
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
                 for info in zf.infolist():
-                    raw_name = info.filename.replace("\\", "/")
-                    rel_path = self._strip_top_dir(raw_name)
-                    if not rel_path or info.is_dir():
+                    if info.is_dir():
                         continue
-                    if rel_path.startswith("__MACOSX/") or rel_path.endswith(
-                        ".DS_Store"
-                    ):
-                        continue
-                    if self._should_ignore(rel_path, ignored):
-                        continue
-
-                    processed_files += 1
-                    if processed_files > self.max_files:
-                        logger.warning(
-                            f"[代码统计] 仓库包含文件数超过安全上限 {self.max_files}，终止后续文件解压喵！"
-                        )
-                        break
-
-                    try:
-                        content = zf.read(info)
-                    except Exception:  # noqa: BLE001
-                        logger.warning(f"[代码统计] 文件解压失败，已跳过: {rel_path}")
-                        continue
-                    self._count_file(rel_path, content, totals)
+                    rel_path = self._strip_top_dir(info.filename.replace("\\", "/"))
+                    yield rel_path, info.file_size, lambda inf=info: zf.read(inf)
         except zipfile.BadZipFile as e:
             raise LocError("仓库归档不是有效的 zip 格式，统计失败喵！") from e
-        return totals
 
-    def _process_tar(self, data: bytes, ignored: list[str]) -> dict[str, dict]:
-        """解压并统计 tar.gz 归档（GitLab archive）喵。"""
-        totals: dict[str, dict] = {}
-        processed_files = 0
+    def _iter_tar_members(self, data: bytes):
+        """流式迭代 tar.gz 归档中的有效文件成员喵。"""
         try:
             with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as tf:
                 for member in tf.getmembers():
                     if member.isdir() or member.islnk() or member.issym():
                         continue
-                    raw_name = member.name.replace("\\", "/")
-                    rel_path = self._strip_top_dir(raw_name)
-                    if not rel_path:
-                        continue
-                    if rel_path.startswith("__MACOSX/") or rel_path.endswith(
-                        ".DS_Store"
-                    ):
-                        continue
-                    if self._should_ignore(rel_path, ignored):
-                        continue
+                    rel_path = self._strip_top_dir(member.name.replace("\\", "/"))
 
-                    processed_files += 1
-                    if processed_files > self.max_files:
-                        logger.warning(
-                            f"[代码统计] 仓库包含文件数超过安全上限 {self.max_files}，终止后续文件解压喵！"
-                        )
-                        break
-
-                    try:
-                        fobj = tf.extractfile(member)
+                    def read_tar_member(m=member) -> bytes:
+                        fobj = tf.extractfile(m)
                         if fobj is None:
-                            continue
-                        content = fobj.read()
-                    except Exception:  # noqa: BLE001
-                        logger.warning(f"[代码统计] 文件解压失败，已跳过: {rel_path}")
-                        continue
-                    self._count_file(rel_path, content, totals)
+                            return b""
+                        return fobj.read()
+
+                    yield rel_path, member.size, read_tar_member
         except tarfile.TarError as e:
             raise LocError("仓库归档不是有效的 tar 格式，统计失败喵！") from e
+
+    def _process_archive_stream(
+        self, member_iterator, ignored: list[str]
+    ) -> dict[str, dict]:
+        """通用的归档流解压统计驱动，统一处理过滤、计数熔断、体积预检与聚合喵。"""
+        totals: dict[str, dict] = {}
+        processed_files = 0
+        for rel_path, file_size, read_func in member_iterator:
+            if not self._is_effective_member(rel_path, ignored):
+                continue
+
+            processed_files += 1
+            if processed_files > self.max_files:
+                logger.warning(
+                    f"[代码统计] 仓库包含文件数超过安全上限 {self.max_files}，终止后续文件解压喵！"
+                )
+                break
+
+            if file_size > self.max_content_bytes:
+                logger.warning(
+                    f"[代码统计] 文件超过 {self.max_content_mb} MB 限制，已跳过解压: "
+                    f"{rel_path} ({file_size / 1024 / 1024:.1f} MB)"
+                )
+                continue
+
+            try:
+                content = read_func()
+            except Exception:  # noqa: BLE001
+                logger.warning(f"[代码统计] 文件解压失败，已跳过: {rel_path}")
+                continue
+            self._count_file(rel_path, content, totals)
         return totals
+
+    def _process_zip(self, data: bytes, ignored: list[str]) -> dict[str, dict]:
+        """解压并统计 zip 归档（GitHub codeload）喵。"""
+        return self._process_archive_stream(self._iter_zip_members(data), ignored)
+
+    def _process_tar(self, data: bytes, ignored: list[str]) -> dict[str, dict]:
+        """解压并统计 tar.gz 归档（GitLab archive）喵。"""
+        return self._process_archive_stream(self._iter_tar_members(data), ignored)
 
     # ------------------------------------------------------------------
     # 单文件计数与聚合
@@ -499,10 +510,13 @@ class LocEngine:
             if not branch:
                 branch = await self._resolve_default_branch_gitlab(full_path)
             basename = parts[-1]
-            archive_url = self.GITLAB_ARCHIVE.format(
-                full_path=full_path,
-                branch=quote(branch),
-                basename=quote(basename),
+            # ref 段转义所有斜杠，文件名段将斜杠转换为中划线
+            ref_encoded = quote(branch, safe="")
+            basename_encoded = quote(basename, safe="")
+            name_branch = quote(branch.replace("/", "-"), safe="")
+            archive_url = (
+                f"https://gitlab.com/{full_path}/-/archive/{ref_encoded}/"
+                f"{basename_encoded}-{name_branch}.tar.gz"
             )
             data = await self._download_archive(
                 archive_url, headers=self._gitlab_headers()

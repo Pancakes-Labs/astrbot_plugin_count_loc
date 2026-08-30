@@ -33,7 +33,7 @@ class CountLocPlugin(Star):
 
     async def initialize(self):
         """异步初始化方法"""
-        logger.info("[代码统计] 插件成功初始化喵！")
+        logger.info("[代码统计] 插件初始化成功喵！")
 
     @filter.on_llm_request()
     async def inject_code_statistics_tool_prompt(
@@ -161,7 +161,7 @@ class CountLocPlugin(Star):
         # 4. 根据请求结果判断与处理
         if isinstance(result, str):
             # 返回字符串代表 API 报错或者抓取失败
-            yield event.plain_result(f"❌ [代码统计] 统计失败了喵。\n原因: {result}")
+            yield event.plain_result(f"❌ 统计失败了喵。\n原因: {result}")
             return
 
         # 5. 格式化统计结果

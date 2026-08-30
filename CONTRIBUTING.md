@@ -112,4 +112,6 @@
 - @Gemini-3.7-Flash
 - @gemini-code-assist[bot]
 - @sourcery-ai[bot]
+- @qodo-free-for-open-source-projects[bot]
+- @coderabbitai[bot]
 - @dependabot[bot]

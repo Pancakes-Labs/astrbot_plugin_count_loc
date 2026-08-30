@@ -1,0 +1,25 @@
+{
+  "github_token": {
+    "description": "GitHub Personal Access Token（可选）",
+    "hint": "用于提升 GitHub API 限额，并支持统计更大规模仓库。",
+    "type": "string",
+    "default": ""
+  },
+  "gitlab_token": {
+    "description": "GitLab Personal Access Token（可选）",
+    "hint": "用于提升 GitLab API 限额。留空则不使用。",
+    "type": "string",
+    "default": ""
+  },
+  "max_archive_mb": {
+    "description": "仓库归档最大体积（MB）",
+    "hint": "超过该体积的仓库归档将拒绝统计，以避免占用过多内存。默认 100 MB。",
+    "type": "int",
+    "default": 100,
+    "slider": {
+        "min": 16,
+        "max": 500,
+        "step": 4
+        }
+    }
+}

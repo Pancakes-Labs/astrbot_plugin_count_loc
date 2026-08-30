@@ -1,5 +1,7 @@
 # API doc (version 0.9.4a)
 
+**The CodeTabs API was closed since 2026-06-30**，this API can not use anymore！
+
 ## **Description**
 
 \- Tool for counting lines of code from github/gitlab repositories.

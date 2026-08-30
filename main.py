@@ -1,3 +1,6 @@
+import asyncio
+import time
+
 import astrbot.api.message_components as Comp
 from astrbot.api import logger
 from astrbot.api.event import AstrMessageEvent, filter
@@ -17,10 +20,16 @@ class CountLocPlugin(Star):
     可以一键分析 GitHub 或 GitLab 上的公开仓库代码，支持分支选择和忽略项过滤喵！
     """
 
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
-        self.repo_client = RepoClient()
+        self.config = config or {}
+        self.repo_client = RepoClient(config=self.config)
         self.command_parser = CommandParser()
+        # 全局统计并发信号量，最多允许同时执行 2 个仓库的统计计算喵
+        self._semaphore = asyncio.Semaphore(2)
+        # 用户冷却防抖记录: sender_id -> last_timestamp
+        self._user_cooldown: dict[str, float] = {}
+        self._cooldown_seconds = 3.0
 
     async def initialize(self):
         """异步初始化方法"""
@@ -77,13 +86,14 @@ class CountLocPlugin(Star):
         if not repo_path or "/" not in repo_path:
             return "统计失败，原因: 请提供正确的仓库路径格式，例如 用户名/仓库名 。"
 
-        # 2. 发送请求获取数据
-        result = await self.repo_client.get_repo_loc(
-            repo_path=repo_path,
-            platform=platform,
-            branch=branch,
-            ignored=ignored,
-        )
+        # 2. 发送请求获取数据（在并发限流保护下执行）
+        async with self._semaphore:
+            result = await self.repo_client.get_repo_loc(
+                repo_path=repo_path,
+                platform=platform,
+                branch=branch,
+                ignored=ignored,
+            )
 
         # 3. 根据请求结果处理
         if isinstance(result, str):
@@ -112,6 +122,14 @@ class CountLocPlugin(Star):
         -i, --ignore <忽略项>   忽略的文件或文件夹，逗号分隔
         -g, --gitlab           使用 GitLab 平台（默认 GitHub）
         """
+        sender_id = str(event.get_sender_id())
+        now = time.time()
+        last_time = self._user_cooldown.get(sender_id, 0)
+        if now - last_time < self._cooldown_seconds:
+            yield event.plain_result("⏳ 操作太频繁了喵，请稍等片刻再试哦！")
+            return
+        self._user_cooldown[sender_id] = now
+
         message_str = event.message_str.strip()
 
         # 1. 使用 CommandParser 解析用户输入
@@ -131,13 +149,14 @@ class CountLocPlugin(Star):
             f"🔍 正在为您努力测算 {platform_name} 仓库 {repo_path} {branch_info} 的代码行数，请稍候喵..."
         )
 
-        # 3. 发送请求获取数据
-        result = await self.repo_client.get_repo_loc(
-            repo_path=repo_path,
-            platform=options.get("platform", "github"),
-            branch=options.get("branch"),
-            ignored=options.get("ignored"),
-        )
+        # 3. 发送请求获取数据（在并发限流保护下执行）
+        async with self._semaphore:
+            result = await self.repo_client.get_repo_loc(
+                repo_path=repo_path,
+                platform=options.get("platform", "github"),
+                branch=options.get("branch"),
+                ignored=options.get("ignored"),
+            )
 
         # 4. 根据请求结果判断与处理
         if isinstance(result, str):

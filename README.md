@@ -402,53 +402,53 @@ flowchart TD
     classDef remoteStyle fill:#EDE7F6,stroke:#7E57C2,stroke-width:2px,color:#4A148C;
 
     %% 节点定义
-    User([💬 终端用户 / LLM 对话]):::userStyle
+    User(["💬 终端用户 / LLM 对话"]):::userStyle
 
-    subgraph AstrBotHost [AstrBot 宿主主程序]
-        MainPlugin[CountLocPlugin 插件主类<br>并发信号量 + 用户防抖<br>main.py]:::pluginStyle
+    subgraph AstrBotHost ["AstrBot 宿主主程序"]
+        MainPlugin["CountLocPlugin 插件主类<br>并发信号量 + 用户防抖<br>main.py"]:::pluginStyle
     end
 
-    subgraph ParserFormatter [指令与数据展示层]
-        Parser[CommandParser<br>指令解析与路径清洗<br>command_parser.py]:::moduleStyle
-        Formatter[DataFormatter<br>流式卡片排版 & 色彩度量条<br>data_formatter.py]:::moduleStyle
-        Colors[LanguageColors<br>语言颜色常量映射<br>language_colors.py]:::moduleStyle
+    subgraph ParserFormatter ["指令与数据展示层"]
+        Parser["CommandParser<br>指令解析与路径清洗<br>command_parser.py"]:::moduleStyle
+        Formatter["DataFormatter<br>流式卡片排版 & 色彩度量条<br>data_formatter.py"]:::moduleStyle
+        Colors["LanguageColors<br>语言颜色常量映射<br>language_colors.py"]:::moduleStyle
     end
 
-    subgraph CoreEngine [自建统计引擎层]
-        Client[RepoClient 门面<br>TTL 内存缓存 10min<br>repo_client.py]:::moduleStyle
-        Engine[LocEngine 自建统计引擎<br>流式下载 / 内存解压 / 安全熔断<br>loc_engine.py]:::engineStyle
-        Detector[LanguageDetector<br>扩展名与特殊文件识别<br>language_detector.py]:::engineStyle
-        Rules[CommentRules<br>状态机行级语法规则<br>comment_rules.py]:::engineStyle
+    subgraph CoreEngine ["自建统计引擎层"]
+        Client["RepoClient 门面<br>TTL 内存缓存 10min<br>repo_client.py"]:::moduleStyle
+        Engine["LocEngine 自建统计引擎<br>流式下载 / 内存解压 / 安全熔断<br>loc_engine.py"]:::engineStyle
+        Detector["LanguageDetector<br>扩展名与特殊文件识别<br>language_detector.py"]:::engineStyle
+        Rules["CommentRules<br>状态机行级语法规则<br>comment_rules.py"]:::engineStyle
     end
 
-    subgraph RemoteGit [远程 Git 官方服务]
-        GitPlatform[GitHub / GitLab 官方 API<br>默认分支解析 & 归档下载<br>api.github.com / gitlab.com]:::remoteStyle
+    subgraph RemoteGit ["远程 Git 官方服务"]
+        GitPlatform["GitHub / GitLab 官方 API<br>默认分支解析 & 归档下载<br>api.github.com / gitlab.com"]:::remoteStyle
     end
 
     %% 数据流向连接
-    User -->|1. 发送 /代码统计 指令或大模型 Tool Call| MainPlugin
-    MainPlugin -->|2. 解析参数字符串与选项| Parser
-    Parser -->|3. 返回规范化仓库路径与过滤参数| MainPlugin
+    User -->|"1. 发送 /代码统计 指令或大模型 Tool Call"| MainPlugin
+    MainPlugin -->|"2. 解析参数字符串与选项"| Parser
+    Parser -->|"3. 返回规范化仓库路径与过滤参数"| MainPlugin
 
-    MainPlugin -->|4. 发起统计查询 (并发限制 x2)| Client
-    Client -->|5. 查询未命中缓存时委托| Engine
+    MainPlugin -->|"4. 发起统计查询（并发限制 x2）"| Client
+    Client -->|"5. 查询未命中缓存时委托"| Engine
 
-    Engine -->|6.1 查询默认分支 (带 Token 鉴权)| GitPlatform
-    Engine -->|6.2 流式拉取 Zip/Tar.gz 归档包| GitPlatform
-    GitPlatform -->|6.3 字节流返回 (实时体积熔断)| Engine
+    Engine -->|"6.1 查询默认分支（带 Token 鉴权）"| GitPlatform
+    Engine -->|"6.2 流式拉取 Zip/Tar.gz 归档包"| GitPlatform
+    GitPlatform -->|"6.3 字节流返回（实时体积熔断）"| Engine
 
-    Engine -->|7.1 提取文件路径与语言分类| Detector
-    Engine -->|7.2 解码文本并逐行解析代码/注释/空白| Rules
-    Rules -->|7.3 聚合指标并转换为标准列表| Engine
+    Engine -->|"7.1 提取文件路径与语言分类"| Detector
+    Engine -->|"7.2 解码文本并逐行解析代码/注释/空白"| Rules
+    Rules -->|"7.3 聚合指标并转换为标准列表"| Engine
 
-    Engine -->|8. 返回标准统计数据集| Client
-    Client -->|9. 写入 TTL 缓存并回传结构化数据| MainPlugin
+    Engine -->|"8. 返回标准统计数据集"| Client
+    Client -->|"9. 写入 TTL 缓存并回传结构化数据"| MainPlugin
 
-    MainPlugin -->|10. 传入原始统计数据| Formatter
-    Formatter -.->|读取色彩映射| Colors
-    Formatter -->|11. 生成可视化排版文本报告| MainPlugin
+    MainPlugin -->|"10. 传入原始统计数据"| Formatter
+    Formatter -.->|"读取色彩映射"| Colors
+    Formatter -->|"11. 生成可视化排版文本报告"| MainPlugin
 
-    MainPlugin -->|12. 群合并转发节点 / 纯文本 / LLM 工具回执| User
+    MainPlugin -->|"12. 群合并转发节点 / 纯文本 / LLM 工具回执"| User
 
     %% 容器与子图样式应用
     style AstrBotHost fill:#F1F8E9,stroke:#81C784,stroke-width:1px,stroke-dasharray: 5 5;

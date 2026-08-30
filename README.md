@@ -106,7 +106,7 @@
 项目: AstrBotDevs/AstrBot
 查询分支: 默认分支
 忽略文件/目录: 无
-查询时间: 2026-08-31 01:53:07 中国标准时间
+查询时间: 2026-08-31 03:12:15 中国标准时间
 ==============================
 文件组成:
 🟦🟦🟦🟦🟦🟦🟦🟦🟩🟩🟩🟨⬛🟨⬜
@@ -133,9 +133,9 @@
     ├─ 代码行数: 21,896 行
     └─ 注释行数: 0 行
  🔹🟨 YAML:
-    ├─ 文件数量: 40 个
-    ├─ 代码行数: 13,722 行
-    └─ 注释行数: 137 行
+    ├─ 文件数量: 39 个
+    ├─ 代码行数: 13,701 行
+    └─ 注释行数: 134 行
  🔹🟦 TypeScript:
     ├─ 文件数量: 60 个
     ├─ 代码行数: 13,498 行
@@ -153,8 +153,8 @@
     ├─ 代码行数: 1,112 行
     └─ 注释行数: 1 行
  🔹⬜ Plain Text:
-    ├─ 文件数量: 9 个
-    ├─ 代码行数: 926 行
+    ├─ 文件数量: 10 个
+    ├─ 代码行数: 925 行
     └─ 注释行数: 0 行
  🔹🟪 Sass:
     ├─ 文件数量: 16 个
@@ -188,6 +188,10 @@
     ├─ 文件数量: 1 个
     ├─ 代码行数: 30 行
     └─ 注释行数: 0 行
+ 🔹⬛ Docker ignore:
+    ├─ 文件数量: 1 个
+    ├─ 代码行数: 26 行
+    └─ 注释行数: 0 行
  🔹🟨 SVG:
     ├─ 文件数量: 8 个
     ├─ 代码行数: 22 行
@@ -200,14 +204,10 @@
     ├─ 文件数量: 1 个
     ├─ 代码行数: 14 行
     └─ 注释行数: 1 行
- 🔹⬜ _redirects:
-    ├─ 文件数量: 1 个
-    ├─ 代码行数: 1 行
-    └─ 注释行数: 0 行
 ==============================
 📁 总计文件数量 : 1,623 个
-💻 总计代码行数 : 318,651 行
-💬 总计注释行数 : 18,069 行
+💻 总计代码行数 : 318,654 行
+💬 总计注释行数 : 18,066 行
 🫙 总计空白行数 : 53,388 行
 📈 总计物理行数 : 390,108 行
 🩺 代码注释比例 : 5.7% (🟠 偏低 (阅读起来要耐心喵))
@@ -315,7 +315,7 @@
   - 说明：GitHub 个人访问令牌。
   - 提示：
     - GitHub 官方对未认证请求限制为 **60 次/小时**；配置 Token 后上限将提升至 **5,000 次/小时**。
-    - 可在 GitHub 的 `Settings -> Developer settings -> Personal access tokens (classic)` 中生成，权限仅需勾选 `public_repo`（只读）即可。
+    - 推荐在 GitHub 生成 Fine-grained Personal Access Token 并仅授予 `Contents: read`（公开仓库只读）权限；若使用 Classic PAT，勾选 `public_repo` 即可。
     - 若此处留空，插件亦会自动检测运行环境中的 `GITHUB_TOKEN` 环境变量作为回退。
 
 - **GitLab Personal Access Token (`gitlab_token`)**:
@@ -519,7 +519,7 @@ GitHub 官方对未提供凭据的匿名 IP 施加了 **60 次/小时** 的请�
 欢迎提交 [Issue](https://github.com/Pancakes-Labs/astrbot_plugin_count_loc/issues) 和 [Pull Request](https://github.com/Pancakes-Labs/astrbot_plugin_count_loc/pulls) 来改进这个插件！
 
 - 对于新功能的添加，请先通过 Issue 等方式讨论。
-- 对于 PR (拉取请求)，请确保你已阅读并同意遵守本项目的 [贡献指南](https://github.com/Pancakes-Labs/astrbot_plugin_helloworld/blob/main/CONTRIBUTING.md)。
+- 对于 PR (拉取请求)，请确保你已阅读并同意遵守本项目的 [贡献指南](https://github.com/Pancakes-Labs/astrbot_plugin_count_loc/blob/main/CONTRIBUTING.md)。
 
 ### 📞 联系我们
 

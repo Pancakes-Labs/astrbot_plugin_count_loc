@@ -124,6 +124,16 @@ class CountLocPlugin(Star):
         """
         sender_id = str(event.get_sender_id())
         now = time.time()
+
+        # 清理已过期的冷却条目，防止字典无界膨胀内存泄漏喵
+        expired_senders = [
+            sid
+            for sid, ts in self._user_cooldown.items()
+            if now - ts >= self._cooldown_seconds
+        ]
+        for sid in expired_senders:
+            self._user_cooldown.pop(sid, None)
+
         last_time = self._user_cooldown.get(sender_id, 0)
         if now - last_time < self._cooldown_seconds:
             yield event.plain_result("⏳ 操作太频繁了喵，请稍等片刻再试哦！")
@@ -196,5 +206,6 @@ class CountLocPlugin(Star):
 
     async def terminate(self):
         """销毁方法"""
+        self._user_cooldown.clear()
         await self.repo_client.close()
         logger.info("[代码统计] 插件已被安全停用喵。")

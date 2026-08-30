@@ -169,17 +169,32 @@ class LocEngine:
         logger.info(f"[代码统计] 正在查询 {platform_name} 默认分支: {api_url}")
         try:
             response = await client.get(api_url, headers=headers)
+            if response.status_code == 404:
+                raise LocError(
+                    "未找到该仓库，请检查路径是否正确，且仓库必须是公开的喵！"
+                )
+            if response.status_code == 403:
+                hint = "，或在插件配置中填写 Token 以提升配额！" if not headers else ""
+                raise LocError(
+                    f"{platform_name} API 访问频率受限{hint}喵。可稍后再试。"
+                )
+            if response.status_code == 401:
+                raise LocError(
+                    f"{platform_name} Token 鉴权失败，请检查配置中的 Token 是否有效喵！"
+                )
+            if response.status_code == 429:
+                raise LocError(
+                    f"{platform_name} 请求过于频繁（HTTP 429），请稍后再试喵！"
+                )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise LocError(
+                f"{platform_name} API 请求失败 (HTTP {e.response.status_code})，请稍后再试喵！"
+            ) from e
         except httpx.RequestError as e:
             raise LocError(
                 f"网络连接异常，无法访问 {platform_name} API 喵。错误详情: {str(e)}"
             ) from e
-
-        if response.status_code == 404:
-            raise LocError("未找到该仓库，请检查路径是否正确，且仓库必须是公开的喵！")
-        if response.status_code == 403:
-            hint = "，或在插件配置中填写 Token 以提升配额！" if not headers else ""
-            raise LocError(f"{platform_name} API 访问频率受限{hint}喵。可稍后再试。")
-        response.raise_for_status()
 
         try:
             data = response.json()
@@ -257,7 +272,18 @@ class LocEngine:
                     raise LocError(
                         "访问仓库归档受限（HTTP 403），可能触发了速率限制或需要权限喵！"
                     )
-                response.raise_for_status()
+                if response.status_code == 401:
+                    raise LocError(
+                        "仓库归档下载鉴权失败（HTTP 401），请检查 Token 是否有效喵！"
+                    )
+                if response.status_code == 429:
+                    raise LocError("仓库归档下载触发限流（HTTP 429），请稍后再试喵！")
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as e:
+                    raise LocError(
+                        f"下载仓库归档失败 (HTTP {e.response.status_code}) 喵！"
+                    ) from e
 
                 chunks = []
                 downloaded = 0

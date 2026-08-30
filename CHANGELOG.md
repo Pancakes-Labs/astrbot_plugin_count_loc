@@ -27,6 +27,11 @@
 
 ---
 
+## ❤️ New Contributors
+
+- @coderabbitai[bot] made their first contribution in #7
+- @qodo-free-for-open-source-projects[bot] made their first contribution in #7
+
 **Full Changelog**: https://github.com/Pancakes-Labs/astrbot_plugin_count_loc/compare/v1.0.0...v2.0.0
 
 <details>
@@ -61,8 +66,6 @@
 - @roomote made their first contribution in #2
 - @gemini-code-assist[bot] made their first contribution in #2
 - @sourcery-ai[bot] made their first contribution in #3
-
-**Full Changelog**: https://github.com/Pancakes-Labs/astrbot_plugin_count_loc/compare/v1.0.0...v1.0.0
 
 ---
 

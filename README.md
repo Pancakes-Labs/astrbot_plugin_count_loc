@@ -79,7 +79,7 @@
 >
 > 对话窗口搭建：VSCode RooCode 扩展
 >
-> Tokens Used：24,422,000
+> Tokens Used：26,015,000
 
 ---
 
